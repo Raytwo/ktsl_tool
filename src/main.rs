@@ -12,7 +12,13 @@ use ktsl2stbin::Ktsl2stbin;
     name = "KtslTool",
     about = "Simple command-line tool to manipulate KTSL (Koei Tecmo Sound Library) files."
 )]
-enum Args {
+struct Args {
+    #[structopt(subcommand)]
+    cmd: Command,
+}
+
+#[derive(Debug, StructOpt)]
+enum Command {
     /// Reserved
     Extract {
     },
@@ -20,12 +26,7 @@ enum Args {
     Inject {
     },
     /// Unpacks a KTSL archive to a directory with the proper file hierarchy for repacking
-    Unpack {
-        #[structopt(short = "gz", long = "gzip", help = "Uncompresses the file")]
-        gz: bool,
-        #[structopt(parse(from_os_str), help = "Path to the file")]
-        path: PathBuf,
-    },
+    Unpack(Unpack),
     /// Packs a directory into a KTSL archive using directory names
     Pack {
         #[structopt(short = "gz", long = "gzip", help = "Compresses the file")]
@@ -42,6 +43,14 @@ enum Args {
     }
 }
 
+#[derive(Debug, StructOpt)]
+struct Unpack {
+    #[structopt(short = "gz", long = "gzip", help = "Uncompresses the file")]
+    gz: bool,
+    #[structopt(parse(from_os_str), help = "Path to the file")]
+    path: PathBuf,
+}
+
 
 fn main() {
     let args = Args::from_args();
@@ -51,11 +60,11 @@ fn main() {
     let file: Box<Ktsl2stbin> = Box::new(Ktsl2stbin::read(&mut reader).unwrap());
     file.unpack();
 
-    match args {
-        Print => {
-            println!("lmao no");
+    match args.cmd {
+        Command::Unpack(unpk) => {
+            let path = unpk.path;
         },
-        _ => { println!("lmao also no"); },
+        _ => { println!("Unimplemented"); },
     }
 }
 
