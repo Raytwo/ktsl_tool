@@ -1,4 +1,6 @@
-use std::path::PathBuf;
+use std::fs::File;
+use std::path::Path;
+use std::io::BufReader;
 
 use binread::{
     io::{
@@ -7,14 +9,12 @@ use binread::{
         SeekFrom
     },
     BinRead,
-    NullString,
     ReadOptions,
     BinResult,
 };
 
 use binwrite::{
     BinWrite,
-    WriterOption,
 };
 
 #[derive(BinRead, BinWrite, Debug)]
@@ -95,12 +95,16 @@ pub struct Ktsl2stbin {
 }
 
 impl Ktsl2stbin {
-    pub fn unpack(&self) {
-        let out_dir = &format!("./out/");
-        std::fs::create_dir(out_dir).unwrap();
+    pub fn open<P: AsRef<Path>>(path: P) -> BinResult<Self> {
+        Self::read(&mut BufReader::new(File::open(path)?))
+    }
 
+    pub fn unpack<P: AsRef<Path>>(&self, out_dir: P) {
         for ktss in &self.entries {
-            let file = std::fs::File::create(format!("{}/{:08x}.ktss", out_dir, ktss.link_id)).unwrap();
+            let mut file_path = out_dir.as_ref().to_path_buf();
+            file_path.push(format!("{:08x}.ktss", ktss.link_id));
+            
+            let file = std::fs::File::create(&file_path).unwrap();
             let mut writer = std::io::BufWriter::new(file);
             ktss.ktss.write(&mut writer).unwrap();
         }
@@ -110,7 +114,7 @@ impl Ktsl2stbin {
 impl BinRead for Ktsl2stbin {
     type Args = ();
 
-    fn read_options<R: Read + Seek>(reader: &mut R, options: &ReadOptions, args: Self::Args) -> BinResult<Self> {
+    fn read_options<R: Read + Seek>(reader: &mut R, _options: &ReadOptions, _args: Self::Args) -> BinResult<Self> {
         let mut ktsl2stbin = Ktsl2stbin {
             header: Ktsr::read(reader)?,
             entries: vec![],

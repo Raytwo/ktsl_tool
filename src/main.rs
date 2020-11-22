@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use binread::{io::Cursor, BinRead};
-
 use structopt::StructOpt;
 
 mod ktsl2stbin;
@@ -20,49 +18,68 @@ struct Args {
 #[derive(Debug, StructOpt)]
 enum Command {
     /// Reserved
-    Extract {
-    },
+    Extract,
     /// Reserved
-    Inject {
-    },
+    Inject,
     /// Unpacks a KTSL archive to a directory with the proper file hierarchy for repacking
     Unpack(Unpack),
     /// Packs a directory into a KTSL archive using directory names
-    Pack {
-        #[structopt(short = "gz", long = "gzip", help = "Compresses the file")]
-        gz: bool,
-        #[structopt(parse(from_os_str), help = "Path to the directory to pack")]
-        path: PathBuf
-    },
+    Pack(Pack),
     /// Output relevant informations about a KTSL archive
-    Print {
-        #[structopt(short = "gz", long = "gzip", help = "Uncompresses the file")]
-        gz: bool,
-        #[structopt(parse(from_os_str), help = "Path to the file to print")]
-        path: PathBuf
-    }
+    Print(Print),
+}
+
+// TODO: Turn all the reused args into a separate struct?
+
+#[derive(Debug, StructOpt)]
+struct Print {
+    /// Decompressed the file
+    #[structopt(short = "gz", long = "gzip")]
+    gz: bool,
+    /// Path to the file to print
+    #[structopt(parse(from_os_str))]
+    path: PathBuf
+}
+
+#[derive(Debug, StructOpt)]
+struct Pack {
+    /// Compress the file
+    #[structopt(short = "gz", long = "gzip")]
+    gz: bool,
+    /// Path to the directory to pack
+    #[structopt(parse(from_os_str))]
+    path: PathBuf,
 }
 
 #[derive(Debug, StructOpt)]
 struct Unpack {
-    #[structopt(short = "gz", long = "gzip", help = "Uncompresses the file")]
+    /// Decompress the file
+    #[structopt(short = "gz", long = "gzip")]
     gz: bool,
-    #[structopt(parse(from_os_str), help = "Path to the file")]
+    /// Path to the file to unpack (Ktsl2stbin only)
+    #[structopt(parse(from_os_str))]
     path: PathBuf,
+    /// Directory where the files are to be extracted. Defaults to "./out".
+    #[structopt(parse(from_os_str), default_value("./out"))]
+    out_dir: PathBuf,
 }
 
-
 fn main() {
-    let args = Args::from_args();
+    let opt = Args::from_args();
 
-    let file = std::fs::File::open("./BGM_DLC_EN.ktsl2stbin").unwrap();
-    let mut reader = std::io::BufReader::new(file);
-    let file: Box<Ktsl2stbin> = Box::new(Ktsl2stbin::read(&mut reader).unwrap());
-    file.unpack();
+    match opt.cmd {
+        Command::Unpack(args) => {
+            let ktsl = match Ktsl2stbin::open(&args.path) {
+                Ok(content) => content,
+                // TODO: Handle this better
+                Err(_) => panic!("Error while trying to open {}", &args.path.display()),
+            };
 
-    match args.cmd {
-        Command::Unpack(unpk) => {
-            let path = unpk.path;
+            // Create directory and childs just in case
+            std::fs::create_dir_all(&args.out_dir).unwrap();
+
+            // Unpack KTSR content in there
+            ktsl.unpack(&args.out_dir);
         },
         _ => { println!("Unimplemented"); },
     }
@@ -70,13 +87,9 @@ fn main() {
 
 mod tests {
     use super::*;
-
-    //const TEST_CONTENTS: &[u8] = include_bytes!("../BGM_DLC_EN.ktsl2stbin");
-
+    
     #[test]
     fn test() {
-        let file: Ktsl2stbin = Ktsl2stbin::read(&mut Cursor::new(&std::fs::read("./BGM_DLC_EN.ktsl2stbin").unwrap())).unwrap();
-        file.unpack();
-        //dbg!(&file.entries[0]);
+        let ktsl: Ktsl2stbin = Ktsl2stbin::open("./BGM_DLC_EN.ktsl2stbin").unwrap();
     }
 }
