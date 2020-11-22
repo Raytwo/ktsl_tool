@@ -68,6 +68,15 @@ fn main() {
     let opt = Args::from_args();
 
     match opt.cmd {
+        Command::Print(args) => {
+            let ktsl = match Ktsl2stbin::open(&args.path) {
+                Ok(content) => content,
+                // TODO: Handle this better
+                Err(_) => panic!("Error while trying to open {}", &args.path.display()),
+            };
+
+            println!("Game ID: {}\nCompressed: {}\nDecompressed size: 0x{:08x}\nKTSL count: {}", ktsl.header.game_id, ktsl.header.comp_size != ktsl.header.decomp_size,ktsl.header.decomp_size, ktsl.entries.len());
+        },
         Command::Unpack(args) => {
             let ktsl = match Ktsl2stbin::open(&args.path) {
                 Ok(content) => content,
