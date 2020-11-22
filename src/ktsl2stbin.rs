@@ -17,6 +17,8 @@ use binwrite::{
     BinWrite,
 };
 
+use rayon::prelude::*;
+
 #[derive(BinRead, BinWrite, Debug)]
 #[br(magic = b"KTSR")]
 pub struct Ktsr {
@@ -99,15 +101,15 @@ impl Ktsl2stbin {
         Self::read(&mut BufReader::new(File::open(path)?))
     }
 
-    pub fn unpack<P: AsRef<Path>>(&self, out_dir: P) {
-        for ktss in &self.entries {
-            let mut file_path = out_dir.as_ref().to_path_buf();
+    pub fn unpack(&self, out_dir: &Path) {
+        &self.entries.par_iter().for_each(|ktss| {
+            let mut file_path = out_dir.to_path_buf();
             file_path.push(format!("{:08x}.ktss", ktss.link_id));
             
             let file = std::fs::File::create(&file_path).unwrap();
             let mut writer = std::io::BufWriter::new(file);
             ktss.ktss.write(&mut writer).unwrap();
-        }
+        });
     }
 }
 
