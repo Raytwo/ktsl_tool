@@ -49,6 +49,8 @@ struct Pack {
     /// Path to the directory to pack
     #[structopt(parse(from_os_str))]
     path: PathBuf,
+    #[structopt(parse(from_os_str))]
+    asbin_path: Option<PathBuf>
 }
 
 #[derive(Debug, StructOpt)]
@@ -89,6 +91,18 @@ fn main() {
 
             // Unpack KTSR content in there
             ktsl.unpack(&args.out_dir);
+        },
+        Command::Pack(args) => {
+            let mut ktsl = Ktsl2stbin::new();
+            // TODO: Ask for GameID or figure it out somehow
+            ktsl.pack(&args.path);
+
+            if let Some(asbin_path) = args.asbin_path {
+                // let mut asbin = Ktsl2asbin::open(&asbin_path).unwrap();
+                // ...
+            }
+
+            dbg!(ktsl);
         },
         _ => { println!("Unimplemented"); },
     }

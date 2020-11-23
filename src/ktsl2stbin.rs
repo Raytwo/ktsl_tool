@@ -17,11 +17,15 @@ use binwrite::{
     BinWrite,
 };
 
+use walkdir::WalkDir;
+
 use rayon::prelude::*;
 
-#[derive(BinRead, BinWrite, Debug)]
-#[br(magic = b"KTSR")]
+pub const KTSL_HEADER_SIZE: u32 =  0x40;
+
+#[derive(BinRead, BinWrite, Debug, Default)]
 pub struct Ktsr {
+    pub magic: [u8;4],
     pub section_type: u32,
     pub flags: u16,
     pub platform_id: u16,
@@ -31,7 +35,20 @@ pub struct Ktsr {
     pub comp_size: u32,
 }
 
-#[derive(BinRead, BinWrite, Debug)]
+impl Ktsr {
+    pub fn new() -> Self {
+        // Temp
+        Ktsr {
+            magic: *b"KTSR",
+            section_type: 0x69420,
+            flags: 1,
+            platform_id: 0x400,
+            .. Default::default()
+        }
+    }
+}
+
+#[derive(BinRead, BinWrite, Debug, Default)]
 pub struct KtslEntry {
     pub section_type: u32,
     pub section_size: u32,
@@ -42,7 +59,17 @@ pub struct KtslEntry {
     pub ktss: Ktss,
 }
 
-#[derive(BinRead, BinWrite, Debug)]
+impl KtslEntry {
+    pub fn new() -> Self {
+        KtslEntry {
+            section_type: 0,
+            header_size: KTSL_HEADER_SIZE,
+            .. Default::default()
+        }
+    }
+}
+
+#[derive(BinRead, BinWrite, Debug, Default)]
 pub struct Ktss {
     pub magic: u32,
     #[binwrite(align_after(0x20))]
@@ -79,7 +106,13 @@ pub struct Ktss {
     pub audio: Vec<LopusPacket>
 }
 
-#[derive(BinRead, BinWrite, Debug)]
+impl Ktss {
+    pub fn open<P: AsRef<Path>>(path: P) -> BinResult<Self> {
+        Self::read(&mut BufReader::new(File::open(path)?))
+    }
+}
+
+#[derive(BinRead, BinWrite, Debug, Default)]
 pub struct LopusPacket {
     pub size: u32,
     pub unk: u32,
@@ -87,7 +120,7 @@ pub struct LopusPacket {
     pub content: Vec<u8>,
 }
 
-#[derive(BinWrite, Debug)]
+#[derive(BinWrite, Debug, Default)]
 //#[binread(little)]
 pub struct Ktsl2stbin {
     pub header: Ktsr,
@@ -97,8 +130,38 @@ pub struct Ktsl2stbin {
 }
 
 impl Ktsl2stbin {
+    pub fn new() -> Self {
+        Ktsl2stbin {
+            header: Ktsr::new(),
+            entries: vec![],
+        }
+    }
+
     pub fn open<P: AsRef<Path>>(path: P) -> BinResult<Self> {
         Self::read(&mut BufReader::new(File::open(path)?))
+    }
+
+    pub fn pack(&mut self, dir: &Path) {
+        for entry in WalkDir::new(dir) {
+            let entry = entry.unwrap();
+
+            let ktss = match Ktss::open(entry.path()) {
+                Ok(ktss) => ktss,
+                // TODO: Make this better
+                Err(err) => panic!(err),
+            };
+
+            let ktsl = KtslEntry {
+                // Absolutely gross
+                link_id: entry.path().file_name().unwrap().to_str().unwrap().parse().unwrap(),
+                ktss_size: ktss.section_size,
+                section_size: ktss.section_size + KTSL_HEADER_SIZE,
+                ktss,
+                .. KtslEntry::new()
+            };
+
+            self.entries.push(ktsl);
+        }
     }
 
     pub fn unpack(&self, out_dir: &Path) {
