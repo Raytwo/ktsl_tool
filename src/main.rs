@@ -102,7 +102,9 @@ fn main() {
                 // ...
             }
 
-            dbg!(ktsl);
+            
+
+            //dbg!(&ktsl.entries[0]);
         },
         _ => { println!("Unimplemented"); },
     }
@@ -114,5 +116,12 @@ mod tests {
     #[test]
     fn test() {
         let ktsl: Ktsl2stbin = Ktsl2stbin::open("./BGM_DLC_EN.ktsl2stbin").unwrap();
+    }
+
+    #[test]
+    fn test_pack() {
+        let mut ktsl: Ktsl2stbin = Ktsl2stbin::new();
+        ktsl.pack("./out");
+        dbg!(&ktsl.entries[0]);
     }
 }

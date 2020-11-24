@@ -1,6 +1,10 @@
 use std::fs::File;
+use std::ffi::OsStr;
 use std::path::Path;
 use std::io::BufReader;
+
+extern crate stopwatch;
+use stopwatch::Stopwatch;
 
 use binread::{
     io::{
@@ -17,7 +21,7 @@ use binwrite::{
     BinWrite,
 };
 
-use walkdir::WalkDir;
+use jwalk::WalkDir;
 
 use rayon::prelude::*;
 
@@ -121,11 +125,10 @@ pub struct LopusPacket {
 }
 
 #[derive(BinWrite, Debug, Default)]
-//#[binread(little)]
 pub struct Ktsl2stbin {
     pub header: Ktsr,
     //#[br(seek_before = SeekFrom::Start(0x40 as _)]
-    // #[binwrite(align(0x40))]
+    #[binwrite(align(0x40))]
     pub entries: Vec<KtslEntry>,
 }
 
@@ -141,9 +144,17 @@ impl Ktsl2stbin {
         Self::read(&mut BufReader::new(File::open(path)?))
     }
 
-    pub fn pack(&mut self, dir: &Path) {
-        for entry in WalkDir::new(dir) {
+    pub fn pack<P: AsRef<Path>>(&mut self, dir: P) {
+        println!("Starting to pack...");
+        
+        let sw = Stopwatch::start_new();
+
+        for entry in WalkDir::new(&dir) {
             let entry = entry.unwrap();
+
+            if entry.path().is_dir() {
+                continue;
+            }
 
             let ktss = match Ktss::open(entry.path()) {
                 Ok(ktss) => ktss,
@@ -151,9 +162,12 @@ impl Ktsl2stbin {
                 Err(err) => panic!(err),
             };
 
+            println!("{}", entry.path().file_stem().unwrap().to_str().unwrap());
+
             let ktsl = KtslEntry {
                 // Absolutely gross
-                link_id: entry.path().file_name().unwrap().to_str().unwrap().parse().unwrap(),
+                //link_id: entry.path().file_name().and_then(|s: &OsStr| s.to_str()).map_or(0, |s: &str| s.parse.unwrap()),
+                link_id: u32::from_str_radix(entry.path().file_stem().and_then(|s: &OsStr| s.to_str()).map_or("0", |lol| lol), 16).unwrap(),
                 ktss_size: ktss.section_size,
                 section_size: ktss.section_size + KTSL_HEADER_SIZE,
                 ktss,
@@ -162,12 +176,19 @@ impl Ktsl2stbin {
 
             self.entries.push(ktsl);
         }
+
+        println!("Packing took {} secs", sw.elapsed().as_secs());
+
+        // Test
+        let file = std::fs::File::create(&"./out.ktsl2stbin").unwrap();
+        let mut writer = std::io::BufWriter::new(file);
+        self.write(&mut writer).unwrap();
     }
 
     pub fn unpack(&self, out_dir: &Path) {
         &self.entries.par_iter().for_each(|ktss| {
             let mut file_path = out_dir.to_path_buf();
-            file_path.push(format!("{:08x}.ktss", ktss.link_id));
+            file_path.push(format!("{:08X}.ktss", ktss.link_id));
             
             let file = std::fs::File::create(&file_path).unwrap();
             let mut writer = std::io::BufWriter::new(file);
