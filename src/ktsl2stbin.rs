@@ -17,8 +17,11 @@ use binread::{
     BinResult,
 };
 
+use std::io::Write;
+
 use binwrite::{
     BinWrite,
+    WriterOption,
 };
 
 use jwalk::WalkDir;
@@ -36,6 +39,7 @@ pub struct Ktsr {
     pub game_id: u32,
     pub padding: u64,
     pub decomp_size: u32,
+    #[binwrite(align_after(0x40))]
     pub comp_size: u32,
 }
 
@@ -52,14 +56,16 @@ impl Ktsr {
     }
 }
 
-#[derive(BinRead, BinWrite, Debug, Default)]
+#[derive(BinRead, BinWrite, Debug, Default, Clone)]
 pub struct KtslEntry {
     pub section_type: u32,
     pub section_size: u32,
     pub link_id: u32,
     pub header_size: u32,
+    #[binwrite(align_after(0x40))]
     pub ktss_size: u32,
     #[br(align_before(0x40), align_after(0x40))]
+    #[binwrite(align_after(0x40))]
     pub ktss: Ktss,
 }
 
@@ -73,7 +79,7 @@ impl KtslEntry {
     }
 }
 
-#[derive(BinRead, BinWrite, Debug, Default)]
+#[derive(BinRead, BinWrite, Debug, Default, Clone)]
 pub struct Ktss {
     pub magic: u32,
     #[binwrite(align_after(0x20))]
@@ -116,7 +122,7 @@ impl Ktss {
     }
 }
 
-#[derive(BinRead, BinWrite, Debug, Default)]
+#[derive(BinRead, BinWrite, Debug, Default, Clone)]
 pub struct LopusPacket {
     pub size: u32,
     pub unk: u32,
@@ -162,14 +168,16 @@ impl Ktsl2stbin {
                 Err(err) => panic!(err),
             };
 
-            println!("{}", entry.path().file_stem().unwrap().to_str().unwrap());
+            // Some align required, should probably be made into a preprocessor?
+            let section_size = ktss.section_size + KTSL_HEADER_SIZE + ( 0x40 - ((ktss.section_size + KTSL_HEADER_SIZE) % 0x40));
 
             let ktsl = KtslEntry {
-                // Absolutely gross
-                //link_id: entry.path().file_name().and_then(|s: &OsStr| s.to_str()).map_or(0, |s: &str| s.parse.unwrap()),
+                // Less gross
                 link_id: u32::from_str_radix(entry.path().file_stem().and_then(|s: &OsStr| s.to_str()).map_or("0", |lol| lol), 16).unwrap(),
+                // TODO: Turn this into a const or enum
+                section_type: 0x15F4D409,
+                section_size,
                 ktss_size: ktss.section_size,
-                section_size: ktss.section_size + KTSL_HEADER_SIZE,
                 ktss,
                 .. KtslEntry::new()
             };
