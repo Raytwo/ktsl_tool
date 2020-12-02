@@ -5,6 +5,9 @@ use structopt::StructOpt;
 mod ktsl2stbin;
 use ktsl2stbin::Ktsl2stbin;
 
+mod ktsl2asbin;
+use ktsl2asbin::Ktsl2asbin;
+
 #[derive(Debug, StructOpt)]
 #[structopt(
     name = "KtslTool",
@@ -95,16 +98,24 @@ fn main() {
         Command::Pack(args) => {
             let mut ktsl = Ktsl2stbin::new();
             // TODO: Ask for GameID or figure it out somehow
-            ktsl.pack(&args.path);
+            //ktsl.pack(&args.path);
 
-            if let Some(asbin_path) = args.asbin_path {
-                // let mut asbin = Ktsl2asbin::open(&asbin_path).unwrap();
-                // ...
-            }
-
+            // Extreme grossness
+            let asbin = match args.asbin_path {
+                Some(asbin_path) => {
+                    let asbin = match Ktsl2asbin::open(&asbin_path) {
+                        Ok(cock) => {
+                            Some(Box::new(cock))
+                        },
+                        Err(_) => None,
+                    };
+                    asbin
+                },
+                None => None,
+            };
             
 
-            //dbg!(&ktsl.entries[0]);
+            ktsl.pack(&args.path, asbin);
         },
         _ => { println!("Unimplemented"); },
     }
@@ -123,5 +134,26 @@ mod tests {
         let mut ktsl: Ktsl2stbin = Ktsl2stbin::new();
         ktsl.pack("./out");
         dbg!(&ktsl.entries[0]);
+    }
+
+    #[test]
+    fn test_asbin() {
+        let mut ktsl: Ktsl2asbin = match Ktsl2asbin::open("./31011.ktsl2asbin") {
+            Ok(ktsl) => ktsl,
+            Err(err) => match err {
+                binread::Error::EnumErrors { pos, variant_errors } => panic!("Pos: {}\nErrors: {:?}", pos, variant_errors),
+                _ => panic!(err),
+            },
+        };
+
+        let test: Vec<&mut ktsl2asbin::Section> = ktsl.entries.iter_mut().filter_map(|section| {
+            if let ktsl2asbin::Section::Adpcm(_) = section {
+                return Some(section)
+            }
+
+            None
+        }).collect();
+        
+        dbg!(test.len());
     }
 }

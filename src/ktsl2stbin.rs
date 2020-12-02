@@ -28,9 +28,11 @@ use jwalk::WalkDir;
 
 use rayon::prelude::*;
 
+use crate::ktsl2asbin::Ktsl2asbin;
+
 pub const KTSL_HEADER_SIZE: u32 =  0x40;
 
-#[derive(BinRead, BinWrite, Debug, Default)]
+#[derive(BinRead, BinWrite, Debug, Default, Clone)]
 pub struct Ktsr {
     pub magic: [u8;4],
     pub section_type: u32,
@@ -150,10 +152,22 @@ impl Ktsl2stbin {
         Self::read(&mut BufReader::new(File::open(path)?))
     }
 
-    pub fn pack<P: AsRef<Path>>(&mut self, dir: P) {
+    /// **Warning**: gross
+    pub fn pack<P: AsRef<Path>>(&mut self, dir: P, mut asbin: Option<Box<Ktsl2asbin>>) {
         println!("Starting to pack...");
         
         let sw = Stopwatch::start_new();
+
+        let mut ktsl2asbin = match asbin {
+            Some(pingas) => {
+                pingas
+            },
+            None => Box::new(Ktsl2asbin::new()),
+        };
+
+        let mut sections = ktsl2asbin.get_companion_sections();
+
+        let mut ktsl_offset = 0x40;
 
         for entry in WalkDir::new(&dir) {
             let entry = entry.unwrap();
@@ -165,15 +179,18 @@ impl Ktsl2stbin {
             let ktss = match Ktss::open(entry.path()) {
                 Ok(ktss) => ktss,
                 // TODO: Make this better
-                Err(err) => panic!(err),
+                Err(err) => {
+                    panic!(err);
+                },
             };
 
             // Some align required, should probably be made into a preprocessor?
             let section_size = ktss.section_size + KTSL_HEADER_SIZE + ( 0x40 - ((ktss.section_size + KTSL_HEADER_SIZE) % 0x40));
+            ktsl_offset += section_size;
 
             let ktsl = KtslEntry {
                 // Less gross
-                link_id: u32::from_str_radix(entry.path().file_stem().and_then(|s: &OsStr| s.to_str()).map_or("0", |lol| lol), 16).unwrap(),
+                link_id: u32::from_str_radix(entry.path().file_stem().and_then(|s: &OsStr| s.to_str()).map_or("0", |name| name), 16).unwrap(),
                 // TODO: Turn this into a const or enum
                 section_type: 0x15F4D409,
                 section_size,
@@ -182,8 +199,20 @@ impl Ktsl2stbin {
                 .. KtslEntry::new()
             };
 
+            let ktss_companion = sections.iter_mut().find(|section| section.link_id == ktsl.link_id);
+
+            if let Some(companion) = ktss_companion {
+                companion.ktss_size = ktsl.ktss.section_size;
+                companion.loop_start = if ktsl.ktss.loop_start == 0 { 0xFFFFFFFF } else { ktsl.ktss.loop_start };
+                companion.sample_count = ktsl.ktss.sample_count;
+                companion.sample_rate = ktsl.ktss.sample_rate;
+                companion.ktss_offset = ktsl_offset;
+            }
+
             self.entries.push(ktsl);
         }
+
+        ktsl2asbin.pack();
 
         println!("Packing took {} secs", sw.elapsed().as_secs());
 
