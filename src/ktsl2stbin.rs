@@ -50,9 +50,10 @@ impl Ktsr {
         // Temp
         Ktsr {
             magic: *b"KTSR",
-            section_type: 0x69420,
+            section_type: 0xFCDD9402,
             flags: 1,
             platform_id: 0x400,
+            game_id: 0xB75674CE,
             .. Default::default()
         }
     }
@@ -167,16 +168,12 @@ impl Ktsl2stbin {
 
         let mut sections = ktsl2asbin.get_companion_sections();
 
+        // Ignore the KTSR header
         let mut ktsl_offset = 0x40;
 
-        for entry in WalkDir::new(&dir) {
-            let entry = entry.unwrap();
-
-            if entry.path().is_dir() {
-                continue;
-            }
-
-            let ktss = match Ktss::open(entry.path()) {
+        //for entry in WalkDir::new(&dir)
+        sections.iter_mut().for_each(|section| {
+            let ktss = match Ktss::open(format!("{}/{:08x}.ktss", dir.as_ref().display(), section.link_id)) {
                 Ok(ktss) => ktss,
                 // TODO: Make this better
                 Err(err) => {
@@ -185,12 +182,18 @@ impl Ktsl2stbin {
             };
 
             // Some align required, should probably be made into a preprocessor?
-            let section_size = ktss.section_size + KTSL_HEADER_SIZE + ( 0x40 - ((ktss.section_size + KTSL_HEADER_SIZE) % 0x40));
-            ktsl_offset += section_size;
+            let section_size = if (ktss.section_size + KTSL_HEADER_SIZE) % 0x40 != 0 {
+                ktss.section_size + KTSL_HEADER_SIZE + ( 0x40 - ((ktss.section_size + KTSL_HEADER_SIZE) % 0x40))
+            } else {
+                ktss.section_size + KTSL_HEADER_SIZE
+            };
+
+            ktsl_offset += KTSL_HEADER_SIZE;
 
             let ktsl = KtslEntry {
                 // Less gross
-                link_id: u32::from_str_radix(entry.path().file_stem().and_then(|s: &OsStr| s.to_str()).map_or("0", |name| name), 16).unwrap(),
+                //link_id: u32::from_str_radix(entry.path().file_stem().and_then(|s: &OsStr| s.to_str()).map_or("0", |name| name), 16).unwrap(),
+                link_id: section.link_id,
                 // TODO: Turn this into a const or enum
                 section_type: 0x15F4D409,
                 section_size,
@@ -199,7 +202,7 @@ impl Ktsl2stbin {
                 .. KtslEntry::new()
             };
 
-            let ktss_companion = sections.iter_mut().find(|section| section.link_id == ktsl.link_id);
+            let ktss_companion = Some(section);
 
             if let Some(companion) = ktss_companion {
                 companion.ktss_size = ktsl.ktss.section_size;
@@ -209,12 +212,17 @@ impl Ktsl2stbin {
                 companion.ktss_offset = ktsl_offset;
             }
 
+            ktsl_offset += section_size - KTSL_HEADER_SIZE;
+
             self.entries.push(ktsl);
-        }
+        });
 
         ktsl2asbin.pack();
 
         println!("Packing took {} secs", sw.elapsed().as_secs());
+
+        self.header.decomp_size = ktsl_offset;
+        self.header.comp_size = ktsl_offset;
 
         // Test
         let file = std::fs::File::create(&"./out.ktsl2stbin").unwrap();
