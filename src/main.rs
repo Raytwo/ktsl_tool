@@ -104,8 +104,9 @@ fn main() {
             let asbin = match args.asbin_path {
                 Some(asbin_path) => {
                     let asbin = match Ktsl2asbin::open(&asbin_path) {
-                        Ok(cock) => {
-                            Some(Box::new(cock))
+                        // 'Sup Devin?
+                        Ok(rooster) => {
+                            Some(Box::new(rooster))
                         },
                         Err(_) => None,
                     };
