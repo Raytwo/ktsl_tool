@@ -203,10 +203,10 @@ pub enum Section {
 }
 
 fn write_sections<W: std::io::Write>(vec: &Vec<Section>, writer: &mut W, options: &WriterOption) -> std::io::Result<()> {
-    let mut cock = Ok(());
+    let mut rooster = Ok(());
 
     for section in vec {
-        cock = match section {
+        rooster = match section {
             Section::Info1(info) => (0x368C88BDu32, info).write_options(writer, options),
             Section::Adpcm(adpcm) => (0x70CBCCC5u32, adpcm).write_options(writer, options),
             Section::Ktss(ktss) => (0x15F4D409u32, ktss).write_options(writer, options),
@@ -215,7 +215,7 @@ fn write_sections<W: std::io::Write>(vec: &Vec<Section>, writer: &mut W, options
         };
     }
 
-    cock
+    rooster
 }
 
 fn ftell_read<R: Read + Seek>(reader: &mut R, _ro: &ReadOptions, _: ()) -> BinResult<u32> {
