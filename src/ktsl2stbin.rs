@@ -43,6 +43,9 @@ pub struct Ktsr {
     pub decomp_size: u32,
     #[binwrite(align_after(0x40))]
     pub comp_size: u32,
+    pub enc_seed_size: u8,
+    #[br(count = enc_seed_size)]
+    pub enc_seed: Vec<u8>,
 }
 
 impl Ktsr {
