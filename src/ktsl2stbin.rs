@@ -41,10 +41,10 @@ pub struct Ktsr {
     pub game_id: u32,
     pub padding: u64,
     pub decomp_size: u32,
-    #[binwrite(align_after(0x40))]
     pub comp_size: u32,
     pub enc_seed_size: u8,
     #[br(count = enc_seed_size)]
+    #[binwrite(align_after(0x40))]
     pub enc_seed: Vec<u8>,
 }
 
