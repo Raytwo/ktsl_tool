@@ -1,7 +1,15 @@
+use binread::{
+    BinRead,
+};
+
+use binwrite::{
+    BinWrite,
+};
+
 // TODO: Rework this to use a subsection
 #[derive(BinRead, BinWrite, Debug, Default, Clone)]
 #[br(little)]
-pub struct KtssCompanionSection {
+pub struct SoundSection {
     pub section_size: u32,
     pub link_id: u32,
     #[br(count = 0x10)]

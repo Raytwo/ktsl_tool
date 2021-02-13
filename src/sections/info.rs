@@ -1,3 +1,11 @@
+use binread::{
+    BinRead,
+};
+
+use binwrite::{
+    BinWrite,
+};
+
 #[derive(BinRead, BinWrite, Debug, Default, Clone)]
 #[br(little)]
 pub struct InfoSection {
@@ -18,7 +26,7 @@ pub struct InfoSection {
 #[br(little)]
 pub enum InfoSubsection {
     #[br(magic = 0x241318u32)]
-    Unk1(Unk1InfoSubbection),
+    Unk1(Unk1InfoSubsection),
     #[br(magic = 0x14AB5u32)]
     Unk2(InfoSection),
 }
@@ -32,7 +40,7 @@ pub struct InfoSubsectionHeader {
 
 #[derive(BinRead, BinWrite, Debug, Default, Clone)]
 #[br(little)]
-pub struct Unk1InfoSubbection {
+pub struct Unk1InfoSubsection {
     pub header: InfoSubsectionHeader,
     pub section_size: u32,
     #[br(count = section_size - 0x8)]

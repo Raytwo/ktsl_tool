@@ -1,3 +1,11 @@
+use binread::{
+    BinRead,
+};
+
+use binwrite::{
+    BinWrite,
+};
+
 #[derive(BinRead, BinWrite, Debug, Default, Clone)]
 #[br(little)]
 pub struct UnknownSection {

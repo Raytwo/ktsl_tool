@@ -8,6 +8,14 @@ use ktsl2stbin::Ktsl2stbin;
 mod ktsl2asbin;
 use ktsl2asbin::Ktsl2asbin;
 
+mod ktsl;
+pub use ktsl::Ktsl;
+
+mod sections;
+pub use sections::*;
+
+use binread::Error::*;
+
 #[derive(Debug, StructOpt)]
 #[structopt(
     name = "KtslTool",
@@ -123,6 +131,8 @@ fn main() {
 }
 
 mod tests {
+    use core::panic;
+
     use super::*;
     
     #[test]
@@ -131,10 +141,8 @@ mod tests {
     }
 
     #[test]
-    fn test_pack() {
-        let mut ktsl: Ktsl2stbin = Ktsl2stbin::new();
-        ktsl.pack("./out");
-        dbg!(&ktsl.entries[0]);
+    fn test_ktsl_stbin_parse() {
+        let ktsl: Ktsl = Ktsl::open("./BGM_DLC_EN.ktsl2stbin").unwrap();
     }
 
     #[test]
@@ -143,7 +151,7 @@ mod tests {
             Ok(ktsl) => ktsl,
             Err(err) => match err {
                 binread::Error::EnumErrors { pos, variant_errors } => panic!("Pos: {}\nErrors: {:?}", pos, variant_errors),
-                _ => panic!(err),
+                _ => panic!(),
             },
         };
 

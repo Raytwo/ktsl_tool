@@ -1,3 +1,18 @@
+use std::{
+    fs::File,
+    io::BufReader,
+    path::Path
+};
+
+use binread::{
+    BinRead,
+    BinResult,
+};
+
+use binwrite::{
+    BinWrite,
+};
+
 pub const KTSL_HEADER_SIZE: u32 =  0x40;
 
 // Header for the container representing every single entry
@@ -6,10 +21,10 @@ pub struct MusicSection {
     pub section_size: u32,
     pub link_id: u32,
     pub header_size: u32,
-    #[binwrite(align_after(0x40))]
     pub ktss_size: u32,
-    #[br(align_before(0x40), align_after(0x40))]
+    #[br(align_before(0x40), align_after(header_size))]
     #[binwrite(align_after(0x40))]
+    // TODO: Can also be a KOVS or RIFF (at9), change this to use a enum instead
     pub ktss: Ktss,
 }
 
