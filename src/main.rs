@@ -146,6 +146,12 @@ mod tests {
     }
 
     #[test]
+    fn test_ktsl_asbin_parse() {
+        let ktsl: Ktsl = Ktsl::open("./31011.ktsl2asbin").unwrap();
+        dbg!(ktsl);
+    }
+
+    #[test]
     fn test_asbin() {
         let mut ktsl: Ktsl2asbin = match Ktsl2asbin::open("./31011.ktsl2asbin") {
             Ok(ktsl) => ktsl,

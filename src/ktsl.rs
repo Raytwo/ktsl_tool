@@ -24,10 +24,10 @@ use sections::{ InfoSection, SoundSection, MusicSection, PaddingSection, Unknown
 #[br(little)]
 pub struct Ktsr {
     pub magic: [u8;4],
-    pub section_type: Filetype,
+    pub filetype: Filetype,
     pub flags: u16,
-    pub platform_id: Platform,
-    pub game_id: Game,
+    pub platform: Platform,
+    pub game: Game,
     pub padding: u64,
     pub decomp_size: u32,
     pub comp_size: u32,
@@ -72,12 +72,12 @@ impl Ktsr {
         // Temp
         Ktsr {
             magic: *b"KTSR",
-            section_type: Filetype::Stream,
+            filetype: Filetype::Stream,
             flags: 1,
             // TODO: Ask it in argument or serialize in a json?
-            platform_id: Platform::Switch,
+            platform: Platform::Switch,
             // TODO: Ask it in argument or serialize in a json?
-            game_id: Game::ThreeHouses,
+            game: Game::ThreeHouses,
             padding: 0,
             decomp_size: 0,
             comp_size: 0,
@@ -90,9 +90,10 @@ impl Ktsr {
 #[derive(BinRead, Debug, Clone)]
 #[br(little)]
 pub enum Section {
-    // Name subject to change.
+    // Name subject to change. Seems heavily related to voice groups
     #[br(magic = 0x368C88BDu32)]
     Info(InfoSection),
+    // Contains either a KTSS/KOVS/RIFF descriptor or a embedded GCADPCM (or whatever they use on other platforms than the Switch)
     #[br(magic = 0x70CBCCC5u32)]
     Sound(SoundSection),
     #[br(magic = 0x15F4D409u32)]
@@ -115,7 +116,7 @@ impl Ktsl {
     pub fn new_asbin() -> Self {
         Ktsl {
             header: Ktsr {
-                section_type: Filetype::Asset,
+                filetype: Filetype::Asset,
                 .. Ktsr::new()
             },
             entries: vec![],
@@ -125,7 +126,7 @@ impl Ktsl {
     pub fn new_stbin() -> Self {
         Ktsl {
             header: Ktsr {
-                section_type: Filetype::Stream,
+                filetype: Filetype::Stream,
                 .. Ktsr::new()
             },
             entries: vec![],
@@ -145,8 +146,6 @@ impl BinRead for Ktsl {
             header: Ktsr::read(reader)?,
             entries: vec![],
         };
-
-        dbg!(&ktsl.header);
 
         reader.seek(SeekFrom::Start(0x40)).unwrap();
 
