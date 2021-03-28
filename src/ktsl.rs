@@ -11,10 +11,6 @@ use binread::{
     BinRead, BinResult, ReadOptions,
 };
 
-use binwrite::{
-    BinWrite,
-};
-
 use crate::sections;
 use sections::{ InfoSection, SoundSection, MusicSection, PaddingSection, UnknownSection };
 
@@ -39,6 +35,8 @@ pub struct Ktsr {
 #[derive(BinRead, Debug, Clone)]
 #[br(little)]
 pub enum Platform {
+    #[br(magic = 0x100u16)]
+    PC,
     #[br(magic = 0x400u16)]
     Switch,
     Unknown(u32)
