@@ -106,7 +106,7 @@ pub struct Ktss {
     padding: u32,
     audio_section_addr: u32,
     audio_section_size: u32,
-    unk5: u32,
+    pub frame_desc_addr: u32,
     pub frame_count: u32,
     pub frame_size: u16,
     some_constant: u16,
@@ -117,6 +117,9 @@ pub struct Ktss {
     #[br(count = channel_count, align_after(0x10), pad_after(0x10))]
     #[binwrite(align_after(0x10), pad_after(0x10))]
     pub channel_mapping: Vec<u8>,
+    #[br(count = frame_count, align_after(0x10))]
+    #[binwrite(align_after(0x10))]
+    pub frame_desc: Vec<u16>,
     #[br(big, count = frame_count)]
     #[binwrite(big)]
     pub audio: Vec<LopusPacket>
