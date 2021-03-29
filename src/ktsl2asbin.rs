@@ -198,8 +198,8 @@ pub enum Section {
     Ktss(KtssSection),
     #[br(magic = 0xA8DB7261u32)]
     Padding(PaddingSection),
-    #[br(magic = 0x368C88BDu32)]
-    Unknown(UnknownSection),
+    // 0x368C88BD, 0xf13bd2a9
+    Unknown(u32, PaddingSection),
 }
 
 fn write_sections<W: std::io::Write>(vec: &Vec<Section>, writer: &mut W, options: &WriterOption) -> std::io::Result<()> {
@@ -211,7 +211,10 @@ fn write_sections<W: std::io::Write>(vec: &Vec<Section>, writer: &mut W, options
             Section::Adpcm(adpcm) => (0x70CBCCC5u32, adpcm).write_options(writer, options),
             Section::Ktss(ktss) => (0x15F4D409u32, ktss).write_options(writer, options),
             Section::Padding(padding) => (0xA8DB7261u32, padding).write_options(writer, options),
-            Section::Unknown(unk) => (0x368C88BDu32, unk).write_options(writer, options),
+            Section::Unknown(magic, unk) => {
+                println!("Unknown section found: {:#08x}", magic);
+                (magic, unk).write_options(writer, options)
+            },
         };
     }
 

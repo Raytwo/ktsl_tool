@@ -116,7 +116,14 @@ fn main() {
                         Ok(rooster) => {
                             Some(Box::new(rooster))
                         },
-                        Err(_) => None,
+                        Err(err) => {
+                            println!("It means me no managed to parse asbin properly");
+                            match err {
+                                binread::Error::EnumErrors { pos, variant_errors } => panic!("Pos: {}\nErrors: {:?}", pos, variant_errors),
+                                _ => panic!(),
+                            }
+                            None
+                        },
                     };
                     asbin
                 },
@@ -137,7 +144,7 @@ mod tests {
     
     #[test]
     fn test() {
-        let ktsl: Ktsl2stbin = Ktsl2stbin::open("./BGM_DLC_EN.ktsl2stbin").unwrap();
+        let ktsl: Ktsl2stbin = Ktsl2stbin::open("./0x272c6efb.file").unwrap();
     }
 
     #[test]
