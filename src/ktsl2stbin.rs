@@ -28,7 +28,7 @@ use jwalk::WalkDir;
 
 use rayon::prelude::*;
 
-use crate::ktsl2asbin::Ktsl2asbin;
+use crate::{ktsl2asbin::Ktsl2asbin, sections};
 
 pub const KTSL_HEADER_SIZE: u32 =  0x40;
 
@@ -101,7 +101,7 @@ pub struct Ktss {
     unk4: u16,
     pub sample_rate: u32,
     pub sample_count: u32,
-    pub loop_start: u32,
+    pub loop_start: i32,
     pub loop_length: u32,
     padding: u32,
     audio_section_addr: u32,
@@ -160,7 +160,7 @@ impl Ktsl2stbin {
     }
 
     /// **Warning**: gross
-    pub fn pack<P: AsRef<Path>>(&mut self, dir: P, mut asbin: Option<Box<Ktsl2asbin>>) {
+    pub fn pack<P: AsRef<Path>>(&mut self, dir: P, asbin: Option<Box<Ktsl2asbin>>) {
         println!("Starting to pack...");
         
         let sw = Stopwatch::start_new();
@@ -174,12 +174,14 @@ impl Ktsl2stbin {
 
         let mut sections = ktsl2asbin.get_companion_sections();
 
+        println!("Section count: {}", sections.len());
+
         // Ignore the KTSR header
         let mut ktsl_offset = 0x40;
 
         //for entry in WalkDir::new(&dir)
         sections.iter_mut().for_each(|section| {
-            let ktss = match Ktss::open(format!("{}/{:08x}.ktss", dir.as_ref().display(), section.link_id)) {
+            let ktss = match Ktss::open(format!("{}/{:08x}.ktss", dir.as_ref().display(), section.header.link_id)) {
                 Ok(ktss) => ktss,
                 // TODO: Make this better
                 Err(err) => {
@@ -199,7 +201,7 @@ impl Ktsl2stbin {
             let ktsl = KtslEntry {
                 // Less gross
                 //link_id: u32::from_str_radix(entry.path().file_stem().and_then(|s: &OsStr| s.to_str()).map_or("0", |name| name), 16).unwrap(),
-                link_id: section.link_id,
+                link_id: section.header.link_id,
                 // TODO: Turn this into a const or enum
                 section_type: 0x15F4D409,
                 section_size,
@@ -212,7 +214,7 @@ impl Ktsl2stbin {
 
             if let Some(companion) = ktss_companion {
                 companion.ktss_size = ktsl.ktss.section_size;
-                companion.loop_start = if ktsl.ktss.loop_start == 0 { 0xFFFFFFFF } else { ktsl.ktss.loop_start };
+                companion.loop_start = if ktsl.ktss.loop_length == 0 { -1 } else { ktsl.ktss.loop_start };
                 companion.sample_count = ktsl.ktss.sample_count;
                 companion.sample_rate = ktsl.ktss.sample_rate;
                 companion.ktss_offset = ktsl_offset;
@@ -227,6 +229,7 @@ impl Ktsl2stbin {
 
         println!("Packing took {} secs", sw.elapsed().as_secs());
 
+        self.header.game_id = ktsl2asbin.header.game_id;
         self.header.decomp_size = ktsl_offset;
         self.header.comp_size = ktsl_offset;
 

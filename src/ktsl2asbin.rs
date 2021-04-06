@@ -148,15 +148,29 @@ pub struct PaddingSection {
     padding: Vec<u8>,
 }
 
-// TODO: Rework this to use a subsection
-#[derive(BinRead, BinWrite, Debug, Default, Clone)]
+#[derive(BinRead, BinWrite, Debug, Clone)]
 #[br(little)]
-pub struct KtssCompanionSection {
+pub struct KtssCompanionSectionHeader {
     pub section_size: u32,
     pub link_id: u32,
-    #[br(count = 0x10)]
-    unknown_1: Vec<u8>,
-    pub header_size: u32,
+    unk1: u16,
+    unk2: u16,
+    pub stream_count: u32,
+    subheader1_addr: u32,
+    subheader2_addr: u32,
+    #[br(count = subheader1_addr - subheader2_addr)]
+    name: Vec<u8>,
+    second_sect_addr: u32,
+    #[br(count = second_sect_addr - subheader1_addr - 4)]
+    padding: Vec<u8>,
+}
+
+// TODO: Rework this to use a subsection
+#[derive(BinRead, BinWrite, Debug, Clone)]
+#[br(little)]
+pub struct KtssCompanionSection {
+    #[br(align_after = 0x8)]
+    pub header: KtssCompanionSectionHeader,
     // This one actually is important and determines what follows, magic for the 0x60 "KTSS companion" subsection is 0x7D43D038
     subsection_magic: u32,
     section_size_2: u32,
@@ -167,14 +181,14 @@ pub struct KtssCompanionSection {
     pub sample_rate: u32,
     pub sample_count: u32,
     unknown_4: u32,
-    pub loop_start: u32,
+    pub loop_start: i32,
     #[br(count = 0xC)]
     unknown_5: Vec<u8>,
     pub ktss_offset: u32,
     pub ktss_size: u32,
     unknown_6: u32,
-    #[br(count = section_size - 0x60)]
-    unk: Vec<u8>,
+    #[br(count = header.section_size - (header.second_sect_addr + section_size_2), align_after = 0x10)]
+    padding: Vec<u8>,
 }
 
 #[derive(BinRead, BinWrite, Debug, Default, Clone)]
@@ -198,8 +212,12 @@ pub enum Section {
     Ktss(KtssSection),
     #[br(magic = 0xA8DB7261u32)]
     Padding(PaddingSection),
+    #[br(magic = 0xf13bd2a9u32)]
+    Unknown1(PaddingSection),
+    #[br(magic = 0x368C88BDu32)]
+    Unknown2(PaddingSection),
     // 0x368C88BD, 0xf13bd2a9
-    Unknown(u32, PaddingSection),
+    //Unknown(u32, PaddingSection),
 }
 
 fn write_sections<W: std::io::Write>(vec: &Vec<Section>, writer: &mut W, options: &WriterOption) -> std::io::Result<()> {
@@ -211,10 +229,12 @@ fn write_sections<W: std::io::Write>(vec: &Vec<Section>, writer: &mut W, options
             Section::Adpcm(adpcm) => (0x70CBCCC5u32, adpcm).write_options(writer, options),
             Section::Ktss(ktss) => (0x15F4D409u32, ktss).write_options(writer, options),
             Section::Padding(padding) => (0xA8DB7261u32, padding).write_options(writer, options),
-            Section::Unknown(magic, unk) => {
-                println!("Unknown section found: {:#08x}", magic);
-                (magic, unk).write_options(writer, options)
-            },
+            // Section::Unknown(magic, unk) => {
+            //     println!("Unknown section found: {:#08x}", magic);
+            //     (magic, unk).write_options(writer, options)
+            // },
+            Section::Unknown1(padding) => (0xf13bd2a9u32, padding).write_options(writer, options),
+            Section::Unknown2(padding) => (0x368C88BDu32, padding).write_options(writer, options),
         };
     }
 
