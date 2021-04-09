@@ -3,6 +3,8 @@ use std::ffi::OsStr;
 use std::path::Path;
 use std::io::BufReader;
 
+use std::io::Result;
+
 extern crate stopwatch;
 use stopwatch::Stopwatch;
 
@@ -117,12 +119,22 @@ pub struct Ktss {
     #[br(count = channel_count, align_after(0x10), pad_after(0x10))]
     #[binwrite(align_after(0x10), pad_after(0x10))]
     pub channel_mapping: Vec<u8>,
-    #[br(count = frame_count, align_after(0x10))]
-    #[binwrite(align_after(0x10))]
-    pub frame_desc: Vec<u16>,
+    #[br(if = frame_size == 0, count = frame_count, align_after(0x10))]
+    #[binwrite(with(write_optional_vec), align_after(0x10))]
+    pub frame_desc: Option<Vec<u16>>,
     #[br(big, count = frame_count)]
     #[binwrite(big)]
     pub audio: Vec<LopusPacket>
+}
+
+pub fn write_optional_vec<W, T>(vec: &Option<Vec<T>>, writer: &mut W, options: &WriterOption) -> Result<()>
+    where W: Write,
+             T: BinWrite,
+{
+    match vec {
+        Some(inner) => BinWrite::write_options(inner, writer, options),
+        None => Ok(())
+    }
 }
 
 impl Ktss {

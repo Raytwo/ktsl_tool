@@ -54,7 +54,7 @@ pub enum Game {
 
 #[derive(BinRead, Debug, Clone)]
 #[br(little)]
-/// The type of content in the KTSR. Names are made up.
+/// The type of content in the KTSR
 pub enum Filetype {
     /// AS-bin
     #[br(magic = 0x1A487B77u32)]
@@ -102,17 +102,41 @@ pub enum Section {
     Unknown(UnknownSection),
 }
 
+#[repr(C)]
+#[derive(BinRead, Debug, Copy, Clone)]
+pub struct Srsa {
+    pub unk: [u32;3],
+}
+
+#[repr(C)]
+#[derive(BinRead, Debug, Copy, Clone)]
+pub struct Srst {
+    pub unk: [u32;3],
+}
+
+#[derive(BinRead, Debug, Clone)]
+#[br(little)]
+pub enum KtslLayout {
+    #[br(magic = b"SRSA")]
+    Srsa(Srsa),
+    #[br(magic = b"SRST")]
+    Srst(Srst),
+}
+
 // Ktsl2stbin and Ktsl2asbin are actually the exact same container with different structs inside. This structure represents their format.
 #[repr(C)]
 #[derive(Debug)]
 pub struct Ktsl {
+    //pub rdb_header: Option<KtslLayout>,
     pub header: Ktsr,
+    // Use a custom reader for this maybe?
     pub entries: Vec<Section>,
 }
 
 impl Ktsl {
     pub fn new_asbin() -> Self {
         Ktsl {
+            //rdb_header: None,
             header: Ktsr {
                 filetype: Filetype::Asset,
                 .. Ktsr::new()
@@ -123,6 +147,7 @@ impl Ktsl {
 
     pub fn new_stbin() -> Self {
         Ktsl {
+            //rdb_header: None,
             header: Ktsr {
                 filetype: Filetype::Stream,
                 .. Ktsr::new()
